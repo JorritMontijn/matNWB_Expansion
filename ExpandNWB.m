@@ -26,9 +26,12 @@ function sSub = ExpandNWB(objSub,strLocation)
 	
 	cellOverloadCellInput = {'cell'};
 	
-	cellSetDataTypes = {'types.untyped.Set'};
+	cellSetDataTypes = {'types.untyped.Set',...
+		'types.core.ProcessingModule'};
 	
 	cellDataContainers = {'types.untyped.DataStub'};
+	
+	cellProcModule = {'types.core.ProcessingModule'};
 	
 	cellDataPointers = {'types.untyped.SoftLink'};
 	
@@ -47,6 +50,9 @@ function sSub = ExpandNWB(objSub,strLocation)
 		'string',...
 		'datetime',...
 		'table',...
+		'types.ndx_aibs_ecephys.EcephysProbe',...
+		'types.ndx_aibs_ecephys.EcephysElectrodeGroup',...
+		'types.untyped.ObjectView',...
 		'function_handle'};
 	
 	cellExpandDataTypes = {'NwbFile',...
@@ -73,7 +79,11 @@ function sSub = ExpandNWB(objSub,strLocation)
 			sSub.(cellFields{intField}) = ExpandNWB(objSub.(cellFields{intField}),strcat(strLocation,'.',cellFields{intField}));
 		end
 	elseif contains(strClass,cellLoadDataTypes)
-		sSub = objSub.data.load;
+		try
+			sSub = objSub.data.load;
+		catch
+			sSub = objSub.data;
+		end
 	elseif contains(strClass,cellSetDataTypes)
 		%get fields
 		cellKeys = objSub.keys;
@@ -81,7 +91,13 @@ function sSub = ExpandNWB(objSub,strLocation)
 		
 		%loop through fields
 		for intKey=1:numel(cellKeys)
-			if contains(class(cellVals{intKey}),cellSetDataTypes)
+			if contains(class(cellVals{intKey}),cellProcModule)
+				class(cellVals{intKey}) 
+				cellSubKeys = objSub.get(cellKeys{intKey}).nwbdatainterface.keys;
+				for intSubKey=1:numel(cellSubKeys)
+					sSub.(cellKeys{intKey}).(cellSubKeys{intSubKey}) = ExpandNWB(objSub.get(cellKeys{intKey}).nwbdatainterface.get(cellSubKeys{intSubKey}),strcat(strLocation,'.',(cellKeys{intKey})'.',(cellSubKeys{intSubKey})));
+				end
+			elseif contains(class(cellVals{intKey}),cellSetDataTypes)
 				if cellVals{intKey}.dynamictable.Count == 0 && cellVals{intKey}.nwbdatainterface.Count == 1
 					sSub.(cellKeys{intKey}) = cellVals{intKey}.nwbdatainterface.values{1}.load;
 				elseif cellVals{intKey}.dynamictable.Count == 1 && cellVals{intKey}.nwbdatainterface.Count == 0
@@ -90,7 +106,7 @@ function sSub = ExpandNWB(objSub,strLocation)
 					sSub.(cellKeys{intKey}).data = ExpandNWB(cellVals{intKey}.nwbdatainterface,strcat(strLocation,'.',(cellKeys{intKey})));
 					sSub.(cellKeys{intKey}).table = ExpandNWB(cellVals{intKey}.dynamictable,strcat(strLocation,'.',(cellKeys{intKey})));
 				end
-			elseif contains(class(cellVals{intKey}),cellExpandDataTypes)
+			else
 				sSub.(cellKeys{intKey}) = ExpandNWB(cellVals{intKey},strcat(strLocation,'.',(cellKeys{intKey})));
 			end
 		end
@@ -103,10 +119,37 @@ function sSub = ExpandNWB(objSub,strLocation)
 		sSub.SoftLink = objSub.path;
 		
 	else
-		sSub.VALUE = objSub;
-		sSub.CLASS = strClass;
-		fprintf('>>> Found unknown class: %s\n',strClass);
-		cellMissingClasses(end+1) = {strClass};
+		%try various expansions
+		cellKeys = [];
+		try
+			cellKeys = fieldnames(objSub);
+		end
+		try
+			cellKeys = keys(objSub);
+		end
+		if ~isempty(cellKeys)
+			for intKey=1:numel(cellKeys)
+				varSub = [];
+				try
+					varSub = ExpandNWB(objSub.(cellKeys{intKey}));
+				catch
+					varSub = ExpandNWB(objSub.get(cellKeys{intKey}));
+				end
+				if ~isempty(varSub)
+					sSub.(cellKeys{intKey}) = varSub;
+				else
+					sSub.(cellKeys{intKey}).CLASS = strClass;
+					sSub.(cellKeys{intKey}).VALUE = objSub;
+					fprintf('>>> Found unknown class: %s\n',strClass);
+					cellMissingClasses(end+1) = {strClass};
+				end
+			end
+		else
+			sSub.VALUE = objSub;
+			sSub.CLASS = strClass;
+			fprintf('>>> Found unknown class: %s\n',strClass);
+			cellMissingClasses(end+1) = {strClass};
+		end
 	end
 	
 	%display missing classes
