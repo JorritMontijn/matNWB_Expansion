@@ -9,6 +9,7 @@ function sSub = PruneStruct(objSub,strLocation)
 	%location
 	if ~exist('strLocation','var') || isempty(strLocation)
 		strLocation = '';
+		fprintf('Pruning structure...\n');
 	end
 	
 	%set special types
@@ -18,7 +19,7 @@ function sSub = PruneStruct(objSub,strLocation)
 		'cell'};
 	
 	%determine data type
-	fprintf('%s\n',strLocation);
+	%fprintf('%s\n',strLocation);
 	sSub = [];
 	strClass = class(objSub);
 	if contains(strClass,cellOverloadCellInput)
@@ -37,4 +38,10 @@ function sSub = PruneStruct(objSub,strLocation)
 	else
 		sSub = objSub;
 	end
+	
+	%location
+	if ~exist('strLocation','var') || isempty(strLocation)
+		fprintf('Pruning complete.\n');
+	end
+	
 end

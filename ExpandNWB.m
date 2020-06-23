@@ -58,6 +58,7 @@ function sSub = ExpandNWB(objSub,strLocation)
 	cellExpandDataTypes = {'NwbFile',...
 		'types.hdmf_common.DynamicTable',...
 		'types.ndx_aibs_ecephys.EcephysSpecimen',...
+		'types.ndx_aibs_ecephys.EcephysEyeTrackingRigMetadata',...
 		'types.core.TimeSeries',...
 		'types.core.TimeIntervals',...
 		'types.core.Units',...
@@ -65,8 +66,11 @@ function sSub = ExpandNWB(objSub,strLocation)
 		'cell'};
 	
 	%determine data type
-	fprintf('%s\n',strLocation);
 	sSub = [];
+	if isempty(objSub)
+		return;
+	end
+	fprintf('%s\n',strLocation);
 	strClass = class(objSub);
 	if contains(strClass,cellOverloadCellInput)
 		sSub = cell(size(objSub));
@@ -84,6 +88,13 @@ function sSub = ExpandNWB(objSub,strLocation)
 		catch
 			sSub = objSub.data;
 		end
+	elseif contains(strClass,cellProcModule)
+		cellProperties = properties(objSub);
+		%loop through fields
+		for intProp=1:numel(cellProperties)
+			sSub.(cellProperties{intProp}) = ExpandNWB(objSub.(cellProperties{intProp}),strcat(strLocation,'.',(cellProperties{intProp})));
+		end
+		
 	elseif contains(strClass,cellSetDataTypes)
 		%get fields
 		cellKeys = objSub.keys;
@@ -92,6 +103,8 @@ function sSub = ExpandNWB(objSub,strLocation)
 		%loop through fields
 		for intKey=1:numel(cellKeys)
 			if contains(class(cellVals{intKey}),cellProcModule)
+				sSub.(cellKeys{intKey}) = ExpandNWB(cellVals{intKey},strcat(strLocation,'.',(cellKeys{intKey})));
+				continue;
 				class(cellVals{intKey}) 
 				cellSubKeys = objSub.get(cellKeys{intKey}).nwbdatainterface.keys;
 				for intSubKey=1:numel(cellSubKeys)
@@ -119,29 +132,38 @@ function sSub = ExpandNWB(objSub,strLocation)
 		sSub.SoftLink = objSub.path;
 		
 	else
+		%msg
+		sSub.CLASS = strClass;
+		sSub.VALUE = objSub;
+		fprintf('>>> Found unknown class: %s\n',strClass);
+		cellMissingClasses(end+1) = {strClass};
+		pause
 		%try various expansions
 		cellKeys = [];
-		try
-			cellKeys = fieldnames(objSub);
-		end
-		try
-			cellKeys = keys(objSub);
+		cellFcns = {'keys','properties','fieldnames'};
+		for intTry=1:numel(cellFcns)
+			if isempty(cellKeys)
+				try
+					cellKeys = feval(cellFcns{intTry},objSub);
+				end
+			end
 		end
 		if ~isempty(cellKeys)
 			for intKey=1:numel(cellKeys)
 				varSub = [];
 				try
-					varSub = ExpandNWB(objSub.(cellKeys{intKey}));
+					varSub = ExpandNWB(objSub.(cellKeys{intKey}),strcat(strLocation,'.',(cellKeys{intKey})));
 				catch
-					varSub = ExpandNWB(objSub.get(cellKeys{intKey}));
+					varSub = ExpandNWB(objSub.get(cellKeys{intKey}),strcat(strLocation,'.',(cellKeys{intKey})));
 				end
 				if ~isempty(varSub)
 					sSub.(cellKeys{intKey}) = varSub;
 				else
 					sSub.(cellKeys{intKey}).CLASS = strClass;
 					sSub.(cellKeys{intKey}).VALUE = objSub;
-					fprintf('>>> Found unknown class: %s\n',strClass);
+					fprintf('>>> Unable to process unknown class: %s\n',strClass);
 					cellMissingClasses(end+1) = {strClass};
+					pause;
 				end
 			end
 		else
@@ -149,6 +171,7 @@ function sSub = ExpandNWB(objSub,strLocation)
 			sSub.CLASS = strClass;
 			fprintf('>>> Found unknown class: %s\n',strClass);
 			cellMissingClasses(end+1) = {strClass};
+			pause
 		end
 	end
 	
