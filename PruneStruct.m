@@ -23,10 +23,11 @@ function sSub = PruneStruct(objSub,strLocation)
 	sSub = [];
 	strClass = class(objSub);
 	if contains(strClass,cellOverloadCellInput)
-		vecNonEmpty = flat(find(~cellfun(@isempty,objSub)))';
-		sSub = cell(size(vecNonEmpty));
-		for intCell=1:numel(vecNonEmpty)
-			sSub{intCell} = PruneStruct(objSub{vecNonEmpty(intCell)},strLocation);
+		indNonEmpty = ~cellfun(@isempty,objSub);
+		vecNonEmpty = flat(find(indNonEmpty))';
+		sSub = cell(size(indNonEmpty));
+		for intCell=vecNonEmpty
+			sSub{intCell} = PruneStruct(objSub{intCell},strLocation);
 		end
 	elseif contains(strClass,cellExpandDataTypes)
 		cellFields = fieldnames(objSub);
