@@ -1,6 +1,6 @@
-function sSub = ExpandNWB(objSub,strLocation)
+function sSub = ExpandNWB(objSub,strLocation,boolVerbose)
 	%ExpandNWB Recursively converts NWB data to native MATLAB data formats
-	%   sNWB = ExpandNWB(objNWB)
+	%   sNWB = ExpandNWB(objNWB,strLocation,boolVerbose)
 	%
 	%Input: NWB data format
 	%
@@ -16,6 +16,10 @@ function sSub = ExpandNWB(objSub,strLocation)
 		cellMissingClasses = {};
 		strLocation = '';
 		fprintf('Starting NWB expansion at %s\n',getTime);
+	end
+	%location
+	if ~exist('boolVerbose','var') || isempty(boolVerbose)
+		boolVerbose = true;
 	end
 	
 	
@@ -70,17 +74,17 @@ function sSub = ExpandNWB(objSub,strLocation)
 	if isempty(objSub)
 		return;
 	end
-	fprintf('%s\n',strLocation);
+	if boolVerbose,fprintf('%s\n',strLocation);end
 	strClass = class(objSub);
 	if contains(strClass,cellOverloadCellInput)
 		sSub = cell(size(objSub));
 		for intCell=1:numel(objSub)
-			sSub{intCell} = ExpandNWB(objSub{intCell},strLocation);
+			sSub{intCell} = ExpandNWB(objSub{intCell},strLocation,boolVerbose);
 		end
 	elseif contains(strClass,cellExpandDataTypes)
 		cellFields = fieldnames(objSub);
 		for intField=1:numel(cellFields)
-			sSub.(cellFields{intField}) = ExpandNWB(objSub.(cellFields{intField}),strcat(strLocation,'.',cellFields{intField}));
+			sSub.(cellFields{intField}) = ExpandNWB(objSub.(cellFields{intField}),strcat(strLocation,'.',cellFields{intField}),boolVerbose);
 		end
 	elseif contains(strClass,cellLoadDataTypes)
 		try
@@ -92,7 +96,7 @@ function sSub = ExpandNWB(objSub,strLocation)
 		cellProperties = properties(objSub);
 		%loop through fields
 		for intProp=1:numel(cellProperties)
-			sSub.(cellProperties{intProp}) = ExpandNWB(objSub.(cellProperties{intProp}),strcat(strLocation,'.',(cellProperties{intProp})));
+			sSub.(cellProperties{intProp}) = ExpandNWB(objSub.(cellProperties{intProp}),strcat(strLocation,'.',(cellProperties{intProp})),boolVerbose);
 		end
 		
 	elseif contains(strClass,cellSetDataTypes)
@@ -103,12 +107,12 @@ function sSub = ExpandNWB(objSub,strLocation)
 		%loop through fields
 		for intKey=1:numel(cellKeys)
 			if contains(class(cellVals{intKey}),cellProcModule)
-				sSub.(cellKeys{intKey}) = ExpandNWB(cellVals{intKey},strcat(strLocation,'.',(cellKeys{intKey})));
+				sSub.(cellKeys{intKey}) = ExpandNWB(cellVals{intKey},strcat(strLocation,'.',(cellKeys{intKey})),boolVerbose);
 				continue;
 				class(cellVals{intKey}) 
 				cellSubKeys = objSub.get(cellKeys{intKey}).nwbdatainterface.keys;
 				for intSubKey=1:numel(cellSubKeys)
-					sSub.(cellKeys{intKey}).(cellSubKeys{intSubKey}) = ExpandNWB(objSub.get(cellKeys{intKey}).nwbdatainterface.get(cellSubKeys{intSubKey}),strcat(strLocation,'.',(cellKeys{intKey})'.',(cellSubKeys{intSubKey})));
+					sSub.(cellKeys{intKey}).(cellSubKeys{intSubKey}) = ExpandNWB(objSub.get(cellKeys{intKey}).nwbdatainterface.get(cellSubKeys{intSubKey}),strcat(strLocation,'.',(cellKeys{intKey})'.',(cellSubKeys{intSubKey})),boolVerbose);
 				end
 			elseif contains(class(cellVals{intKey}),cellSetDataTypes)
 				if cellVals{intKey}.dynamictable.Count == 0 && cellVals{intKey}.nwbdatainterface.Count == 1
@@ -116,11 +120,11 @@ function sSub = ExpandNWB(objSub,strLocation)
 				elseif cellVals{intKey}.dynamictable.Count == 1 && cellVals{intKey}.nwbdatainterface.Count == 0
 					sSub.(cellKeys{intKey}) = cellVals{intKey}.dynamictable.values{1}.load;
 				else
-					sSub.(cellKeys{intKey}).data = ExpandNWB(cellVals{intKey}.nwbdatainterface,strcat(strLocation,'.',(cellKeys{intKey})));
-					sSub.(cellKeys{intKey}).table = ExpandNWB(cellVals{intKey}.dynamictable,strcat(strLocation,'.',(cellKeys{intKey})));
+					sSub.(cellKeys{intKey}).data = ExpandNWB(cellVals{intKey}.nwbdatainterface,strcat(strLocation,'.',(cellKeys{intKey})),boolVerbose);
+					sSub.(cellKeys{intKey}).table = ExpandNWB(cellVals{intKey}.dynamictable,strcat(strLocation,'.',(cellKeys{intKey})),boolVerbose);
 				end
 			else
-				sSub.(cellKeys{intKey}) = ExpandNWB(cellVals{intKey},strcat(strLocation,'.',(cellKeys{intKey})));
+				sSub.(cellKeys{intKey}) = ExpandNWB(cellVals{intKey},strcat(strLocation,'.',(cellKeys{intKey})),boolVerbose);
 			end
 		end
 	elseif contains(strClass,cellNormalDataTypes)
@@ -152,9 +156,9 @@ function sSub = ExpandNWB(objSub,strLocation)
 			for intKey=1:numel(cellKeys)
 				varSub = [];
 				try
-					varSub = ExpandNWB(objSub.(cellKeys{intKey}),strcat(strLocation,'.',(cellKeys{intKey})));
+					varSub = ExpandNWB(objSub.(cellKeys{intKey}),strcat(strLocation,'.',(cellKeys{intKey})),boolVerbose);
 				catch
-					varSub = ExpandNWB(objSub.get(cellKeys{intKey}),strcat(strLocation,'.',(cellKeys{intKey})));
+					varSub = ExpandNWB(objSub.get(cellKeys{intKey}),strcat(strLocation,'.',(cellKeys{intKey})),boolVerbose);
 				end
 				if ~isempty(varSub)
 					sSub.(cellKeys{intKey}) = varSub;
